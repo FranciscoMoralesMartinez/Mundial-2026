@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Mundial 2026 - Multijugador en Vivo</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0b1329;
+    }
+    .score-input::-webkit-outer-spin-button,
+    .score-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .score-input {
+      -moz-appearance: textfield;
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen pb-16">
+
+  <!-- CAPA DE CONTROL DE SALA / LOBBY -->
+  <div id="lobby-screen" class="hidden fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative overflow-hidden">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.08)_0%,transparent_70%)]"></div>
+      <div class="relative text-center">
+        <span class="text-4xl">⚽</span>
+        <h2 class="text-2xl font-extrabold text-slate-100 mt-3">Simulador Colaborativo</h2>
+        <p class="text-slate-400 text-sm mt-2 mb-6">Crea o únete a una sala compartida en la nube para rellenar los marcadores con tus amigos al mismo tiempo.</p>
+        
+        <div class="space-y-4 text-left">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Nombre de la Sala / Código</label>
+            <input id="room-input" type="text" placeholder="Ej: amigos-mundial-2026" class="w-full bg-slate-800/80 border border-slate-700 focus:border-emerald-500 rounded-xl px-4 py-3 text-slate-100 focus:outline-none font-semibold transition text-center tracking-wide" />
+          </div>
+          <button id="join-room-btn" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold rounded-xl shadow-lg shadow-emerald-500/20 transition duration-150 uppercase tracking-wider text-xs">
+            Ingresar a la Sala
+          </button>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-slate-800/60 text-xs text-slate-500">
+          Usa letras, números y guiones. Todos los que escriban el mismo nombre compartirán la misma base de datos.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANTALLA PRINCIPAL DEL SIMULADOR -->
+  <header class="relative overflow-hidden bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border-b border-emerald-500/10 py-6 px-4">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05)_0%,transparent_70%)]"></div>
+    <div class="relative max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+      
+      <!-- Título de la App -->
+      <div class="text-center md:text-left">
+        <span class="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full text-xs font-bold mb-2">
+          ⚽ COPA MUNDIAL 2026 - BASE DE DATOS ACTIVA
+        </span>
+        <h1 class="text-2xl md:text-3xl font-black bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">
+          Fixture Colaborativo 2026
+        </h1>
+      </div>
+
+      <!-- Control de Sala Compartida -->
+      <div class="bg-slate-900/95 border border-slate-800 rounded-2xl p-4 w-full md:w-auto max-w-md flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <span class="text-xs text-slate-400 block font-medium uppercase tracking-wider">SALA DE JUEGO</span>
+            <span id="room-display-name" class="text-emerald-400 font-extrabold tracking-widest text-base">CARGANDO...</span>
+          </div>
+          <button id="open-share-btn" class="px-3.5 py-2 bg-emerald-500 text-slate-950 hover:bg-emerald-400 font-extrabold rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/10">
+            🔗 Compartir / Invitar
+          </button>
+        </div>
+        
+        <!-- Estado de Conexiones -->
+        <div class="flex items-center gap-2 border-t border-slate-800/60 pt-2.5">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">ID Jugador Local:</span>
+          <span id="user-display-id" class="text-[10px] text-slate-300 font-mono bg-slate-800 px-1.5 py-0.5 rounded truncate max-w-[150px]">...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ACCIONES GLOBALES DE SIMULACIÓN -->
+  <div class="max-w-7xl mx-auto px-4 mt-6 flex flex-wrap items-center justify-between gap-4">
+    <!-- Pestañas de Vista principales -->
+    <div class="flex border-b border-slate-800/80 w-full lg:w-auto overflow-x-auto">
+      <button id="tab-groups-btn" class="px-4 py-3 border-b-2 border-emerald-500 text-emerald-400 font-bold text-sm transition shrink-0">
+        Por Grupos (A - L)
+      </button>
+      <button id="tab-matches-btn" class="px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-semibold text-sm transition shrink-0">
+        Lista de Partidos (72)
+      </button>
+      <button id="tab-knockout-btn" class="px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-semibold text-sm transition shrink-0 flex items-center gap-1.5">
+        <span>🏆</span> Fase Final (Playoffs)
+      </button>
+    </div>
+
+    <!-- Botones rápidos de control -->
+    <div class="flex items-center gap-2">
+      <button id="simulate-btn" class="px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 text-emerald-300 border border-emerald-500/30 font-bold rounded-xl text-xs transition duration-150">
+        🎲 Simular Vacíos
+      </button>
+      <button id="reset-btn" class="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs transition duration-150">
+        🗑️ Limpiar Todo
+      </button>
+    </div>
+  </div>
+
+  <!-- NOTIFICACIÓN DE ÚLTIMA ACTIVIDAD -->
+  <div id="activity-alert" class="max-w-7xl mx-auto px-4 mt-4 hidden">
+    <div class="bg-indigo-950/40 border border-indigo-500/25 text-indigo-300 px-4 py-2.5 rounded-xl text-xs flex items-center gap-2">
+      <span class="animate-bounce">🔄</span>
+      <span id="activity-text">¡Marcadores actualizados por otro usuario en la sala!</span>
+    </div>
+  </div>
+
+  <!-- NOTIFICACIÓN TIPO TOAST -->
+  <div id="toast-message" class="fixed bottom-6 right-6 z-50 transform translate-y-12 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="bg-emerald-950 border border-emerald-500 text-emerald-400 px-5 py-3 rounded-xl shadow-2xl text-sm font-bold flex items-center gap-2">
+      <span>✨</span> <span id="toast-text">Copiado al portapapeles</span>
+    </div>
+  </div>
+
+  <!-- MODAL DE COMPARTIR -->
+  <div id="share-modal" class="hidden fixed inset-0 z-50 bg-slate-950/85 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-lg w-full relative overflow-hidden">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.05)_0%,transparent_70%)]"></div>
+      
+      <div class="relative">
+        <div class="flex justify-between items-start mb-4">
+          <h3 class="text-lg font-extrabold text-slate-100 flex items-center gap-2">
+            <span>👥</span> Invitar Amigos a Colaborar
+          </h3>
+          <button id="close-share-btn" class="text-slate-400 hover:text-slate-200 font-bold text-sm">✕</button>
+        </div>
+
+        <p class="text-slate-400 text-xs mb-4">
+          Cualquier persona que se conecte a esta sala verá los cambios e ingresará marcadores en tiempo real.
+        </p>
+
+        <!-- Código de la sala -->
+        <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 mb-4">
+          <span class="text-[10px] text-slate-500 block font-bold uppercase tracking-wider mb-1">CÓDIGO DE ESTA SALA</span>
+          <div class="flex items-center justify-between">
+            <span id="share-room-code" class="text-xl font-mono font-extrabold text-emerald-400">...</span>
+            <button id="copy-code-btn" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg text-slate-300 transition">
+              Copiar Código
+            </button>
+          </div>
+        </div>
+
+        <!-- Instrucciones según entorno -->
+        <div id="share-env-warning" class="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-3 rounded-xl text-xs mb-4">
+          <strong>⚠️ Estás en modo Vista Previa:</strong> El enlace actual de tu navegador es temporal. Para jugar con tus amigos de forma rápida, puedes enviarles este archivo HTML y decirles que se unan ingresando este código de sala.
+        </div>
+
+        <div class="bg-slate-950/45 p-3 rounded-xl border border-slate-850 text-xs space-y-2">
+          <span class="font-bold text-slate-300 block">¿Cómo jugar juntos?</span>
+          <ol class="list-decimal pl-4 space-y-1 text-slate-400">
+            <li>Envía el archivo HTML a tus amigos (por WhatsApp, email, etc.) o publícalo en un hosting gratis.</li>
+            <li>Diles que lo abran en su computadora o celular.</li>
+            <li>En la pantalla de inicio, deben introducir exactamente el mismo código: <strong class="text-emerald-400 font-mono" id="share-room-code-badge">...</strong></li>
+          </ol>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-6">
+          <button id="copy-link-btn" class="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold rounded-xl text-xs transition uppercase tracking-wider">
+            📋 Copiar Enlace Directo de la Sala
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENIDO PRINCIPAL DEL SIMULADOR -->
+  <main class="max-w-7xl mx-auto px-4 mt-6">
+    
+    <!-- VISTA POR GRUPOS (A-L) -->
+    <div id="view-groups" class="space-y-12">
+      <div id="groups-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Generado dinámicamente -->
+      </div>
+    </div>
+
+    <!-- VISTA LISTA COMPLETA DE PARTIDOS -->
+    <div id="view-matches" class="hidden">
+      <div class="bg-slate-900/50 border border-slate-800 rounded-3xl p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-slate-200">Lista Completa de Partidos (Fase de Grupos)</h2>
+            <p class="text-xs text-slate-400">Introduce los marcadores en cualquiera de los 72 encuentros.</p>
+          </div>
+          <!-- Filtro de Grupo -->
+          <select id="filter-group-select" class="bg-slate-800 text-slate-200 text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none">
+            <option value="ALL">Todos los Grupos</option>
+            <option value="A">Grupo A</option>
+            <option value="B">Grupo B</option>
+            <option value="C">Grupo C</option>
+            <option value="D">Grupo D</option>
+            <option value="E">Grupo E</option>
+            <option value="F">Grupo F</option>
+            <option value="G">Grupo G</option>
+            <option value="H">Grupo H</option>
+            <option value="I">Grupo I</option>
+            <option value="J">Grupo J</option>
+            <option value="K">Grupo K</option>
+            <option value="L">Grupo L</option>
+          </select>
+        </div>
+
+        <div id="matches-list-container" class="space-y-3">
+          <!-- Generado dinámicamente -->
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA DE LA FASE FINAL (PLAYOFFS) -->
+    <div id="view-knockout" class="hidden space-y-6">
+      <div class="bg-slate-900/50 border border-slate-800 rounded-3xl p-6">
+        <div class="text-center md:text-left mb-6">
+          <h2 class="text-2xl font-black text-slate-100 flex items-center justify-center md:justify-start gap-2">
+            <span>🏆</span> Cuadro de Fase Final (Mundial 2026)
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">
+            Los mejores 2 de cada grupo y los 8 mejores terceros avanzan de forma automática. ¡Introduce los marcadores y penaltis si hay empate!
+          </p>
+        </div>
+
+        <!-- Selector de Rondas del Cuadro (Para mantenerlo totalmente limpio y responsivo) -->
+        <div class="flex border-b border-slate-800 mb-6 overflow-x-auto pb-1 gap-1">
+          <button id="ko-tab-R32" class="px-4 py-2 text-xs font-bold bg-emerald-500/10 text-emerald-400 rounded-lg shrink-0">Dieciseisavos (1/16)</button>
+          <button id="ko-tab-R16" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 shrink-0">Octavos (1/8)</button>
+          <button id="ko-tab-QF" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 shrink-0">Cuartos (1/4)</button>
+          <button id="ko-tab-SF" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 shrink-0">Semifinales</button>
+          <button id="ko-tab-F" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 shrink-0">Gran Final 🏆</button>
+        </div>
+
+        <!-- Contenedor del Bracket / Tarjetas de Partido -->
+        <div id="knockout-bracket-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <!-- Generado dinámicamente con JS -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL DE CONFIRMACIÓN -->
+  <div id="confirm-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full">
+      <h3 class="text-lg font-bold text-slate-100">¿Estás seguro?</h3>
+      <p class="text-slate-400 text-xs mt-2">Esta acción borrará absolutamente todos los marcadores guardados (tanto de grupos como de fase final) en la sala para todos los usuarios conectados.</p>
+      <div class="flex justify-end gap-3 mt-6">
+        <button id="close-confirm-btn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold">Cancelar</button>
+        <button id="modal-confirm-reset-btn" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-slate-100 rounded-lg text-xs font-bold">Borrar Todo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPORTACIÓN DE FIREBASE SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // --- CONFIGURACIÓN GLOBAL ---
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'mundial-2026-sim';
+    const firebaseConfig = JSON.parse(__firebase_config);
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let user = null;
+    let currentRoomId = '';
+    let matches = [];
+    let knockoutMatches = [];
+    let currentKoRoundView = 'R32'; // Ronda seleccionada por defecto en la pestaña Fase Final
+    let unsubscribeActiveRoom = null;
+
+    const groupData = {
+      'A': { name: 'Grupo A', teams: ['México', 'Sudáfrica', 'Corea del Sur', 'República Checa'], emojis: { 'México': '🇲🇽', 'Sudáfrica': '🇿🇦', 'Corea del Sur': '🇰🇷', 'República Checa': '🇨🇿' } },
+      'B': { name: 'Grupo B', teams: ['Canadá', 'Suiza', 'Catar', 'Bosnia y Herzegovina'], emojis: { 'Canadá': '🇨🇦', 'Suiza': '🇨🇭', 'Catar': '🇶🇦', 'Bosnia y Herzegovina': '🇧🇦' } },
+      'C': { name: 'Grupo C', teams: ['Brasil', 'Marruecos', 'Haití', 'Escocia'], emojis: { 'Brasil': '🇧🇷', 'Marruecos': '🇲🇦', 'Haití': '🇭🇹', 'Escocia': '🏴󠁧󠁢󠁳󠁣󠁴󠁿' } },
+      'D': { name: 'Grupo D', teams: ['Estados Unidos', 'Paraguay', 'Australia', 'Turquía'], emojis: { 'Estados Unidos': '🇺🇸', 'Paraguay': '🇵🇾', 'Australia': '🇦🇺', 'Turquía': '🇹🇷' } },
+      'E': { name: 'Grupo E', teams: ['Alemania', 'Curazao', 'Costa de Marfil', 'Ecuador'], emojis: { 'Alemania': '🇩🇪', 'Curazao': '🇨🇼', 'Costa de Marfil': '🇨🇮', 'Ecuador': '🇪🇨' } },
+      'F': { name: 'Grupo F', teams: ['Países Bajos', 'Japón', 'Túnez', 'Suecia'], emojis: { 'Países Bajos': '🇳🇱', 'Japón': '🇯🇵', 'Túnez': '🇹🇳', 'Suecia': '🇸🇪' } },
+      'G': { name: 'Grupo G', teams: ['Bélgica', 'Egipto', 'Irán', 'Nueva Zelanda'], emojis: { 'Bélgica': '🇧🇪', 'Egipto': '🇪🇬', 'Irán': '🇮🇷', 'Nueva Zelanda': '🇳🇿' } },
+      'H': { name: 'Grupo H', teams: ['España', 'Cabo Verde', 'Arabia Saudita', 'Uruguay'], emojis: { 'España': '🇪🇸', 'Cabo Verde': '🇨🇻', 'Arabia Saudita': '🇸🇦', 'Uruguay': '🇺🇾' } },
+      'I': { name: 'Grupo I', teams: ['Francia', 'Senegal', 'Noruega', 'Irak'], emojis: { 'Francia': '🇫🇷', 'Senegal': '🇸🇳', 'Noruega': '🇳🇴', 'Irak': '🇮🇶' } },
+      'J': { name: 'Grupo J', teams: ['Argentina', 'Argelia', 'Austria', 'Jordania'], emojis: { 'Argentina': '🇦🇷', 'Argelia': '🇩🇿', 'Austria': '🇦🇹', 'Jordania': '🇯🇴' } },
+      'K': { name: 'Grupo K', teams: ['Portugal', 'Uzbekistán', 'Colombia', 'RD Congo'], emojis: { 'Portugal': '🇵🇹', 'Uzbekistán': '🇺🇿', 'Colombia': '🇨🇴', 'RD Congo': '🇨🇩' } },
+      'L': { name: 'Grupo L', teams: ['Inglaterra', 'Croacia', 'Ghana', 'Panamá'], emojis: { 'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croacia': '🇭🇷', 'Ghana': '🇬🇭', 'Panamá': '🇵🇦' } }
+    };
+
+    // --- AUTENTICACIÓN ---
+    const initAuth = async () => {
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
+      }
+    };
+
+    // --- INICIALIZACIÓN DE DATOS (ESQUELETO) ---
+    function generateMatchesSkeleton() {
+      const generated = [];
+      let matchId = 1;
+      const dates = {
+        'A': ['11 Jun', '12 Jun', '18 Jun', '18 Jun', '24 Jun', '24 Jun'],
+        'B': ['12 Jun', '13 Jun', '18 Jun', '19 Jun', '24 Jun', '24 Jun'],
+        'C': ['13 Jun', '13 Jun', '19 Jun', '20 Jun', '25 Jun', '25 Jun'],
+        'D': ['13 Jun', '14 Jun', '19 Jun', '20 Jun', '26 Jun', '26 Jun'],
+        'E': ['14 Jun', '15 Jun', '20 Jun', '21 Jun', '25 Jun', '25 Jun'],
+        'F': ['14 Jun', '14 Jun', '20 Jun', '21 Jun', '26 Jun', '26 Jun'],
+        'G': ['15 Jun', '15 Jun', '21 Jun', '22 Jun', '26 Jun', '26 Jun'],
+        'H': ['15 Jun', '16 Jun', '21 Jun', '22 Jun', '27 Jun', '27 Jun'],
+        'I': ['16 Jun', '17 Jun', '22 Jun', '23 Jun', '27 Jun', '27 Jun'],
+        'J': ['16 Jun', '17 Jun', '22 Jun', '23 Jun', '28 Jun', '28 Jun'],
+        'K': ['17 Jun', '18 Jun', '23 Jun', '24 Jun', '28 Jun', '28 Jun'],
+        'L': ['17 Jun', '18 Jun', '23 Jun', '24 Jun', '27 Jun', '27 Jun']
+      };
+
+      for (const [groupKey, group] of Object.entries(groupData)) {
+        const teams = group.teams;
+        const pairings = [
+          { home: teams[0], away: teams[1], date: dates[groupKey][0] },
+          { home: teams[2], away: teams[3], date: dates[groupKey][1] },
+          { home: teams[3], away: teams[1], date: dates[groupKey][2] },
+          { home: teams[0], away: teams[2], date: dates[groupKey][3] },
+          { home: teams[0], away: teams[3], date: dates[groupKey][4] },
+          { home: teams[2], away: teams[1], date: dates[groupKey][5] }
+        ];
+
+        pairings.forEach((p) => {
+          generated.push({
+            id: matchId++,
+            group: groupKey,
+            home: p.home,
+            away: p.away,
+            homeScore: null,
+            awayScore: null,
+            date: p.date
+          });
+        });
+      }
+      return generated;
+    }
+
+    // Inicializar el esqueleto de partidos para la fase final
+    function generateKnockoutSkeleton() {
+      const list = [];
+      
+      // Dieciseisavos (16 partidos: de R32_1 a R32_16)
+      for (let i = 1; i <= 16; i++) {
+        list.push({ id: `R32_${i}`, round: 'R32', homeTeam: '', awayTeam: '', homeScore: null, awayScore: null, homePen: null, awayPen: null });
+      }
+      // Octavos (8 partidos: de R16_1 a R16_8)
+      for (let i = 1; i <= 8; i++) {
+        list.push({ id: `R16_${i}`, round: 'R16', homeTeam: '', awayTeam: '', homeScore: null, awayScore: null, homePen: null, awayPen: null });
+      }
+      // Cuartos (4 partidos: de QF_1 a QF_4)
+      for (let i = 1; i <= 4; i++) {
+        list.push({ id: `QF_${i}`, round: 'QF', homeTeam: '', awayTeam: '', homeScore: null, awayScore: null, homePen: null, awayPen: null });
+      }
+      // Semifinales (2 partidos: de SF_1 a SF_2)
+      for (let i = 1; i <= 2; i++) {
+        list.push({ id: `SF_${i}`, round: 'SF', homeTeam: '', awayTeam: '', homeScore: null, awayScore: null, homePen: null, awayPen: null });
+      }
+      // Final (1 partido: F_1)
+      list.push({ id: 'F_1', round: 'F', homeTeam: '', awayTeam: '', homeScore: null, awayScore: null, homePen: null, awayPen: null });
+
+      return list;
+    }
+
+    // --- CONEXIÓN A FIRESTORE ---
+    function setupRoomListener() {
+      if (!user || !currentRoomId) return;
+
+      if (unsubscribeActiveRoom) {
+        unsubscribeActiveRoom();
+      }
+
+      const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+
+      unsubscribeActiveRoom = onSnapshot(roomDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data.matches) {
+            matches = data.matches;
+            
+            // Si la base de datos no tiene partidos de eliminatorias, los generamos
+            if (data.knockoutMatches) {
+              knockoutMatches = data.knockoutMatches;
+            } else {
+              knockoutMatches = generateKnockoutSkeleton();
+            }
+
+            // Recalcular la fase final antes de pintar la interfaz
+            computeKnockoutProgression();
+
+            renderAllGroups();
+            renderMatchesList();
+            renderKnockoutBracket();
+
+            if (data.lastUpdatedBy && data.lastUpdatedBy !== user.uid) {
+              const alertEl = document.getElementById('activity-alert');
+              alertEl.classList.remove('hidden');
+              setTimeout(() => alertEl.classList.add('hidden'), 5000);
+            }
+          }
+        } else {
+          // Creación de sala vacía
+          const initialMatches = generateMatchesSkeleton();
+          const initialKnockout = generateKnockoutSkeleton();
+          setDoc(roomDocRef, {
+            matches: initialMatches,
+            knockoutMatches: initialKnockout,
+            createdAt: new Date().toISOString(),
+            lastUpdatedBy: user.uid
+          });
+        }
+      }, (error) => {
+        console.error("Error al conectar en vivo con la sala:", error);
+      });
+    }
+
+    // Guardar cambios en Firestore
+    async function syncDataToFirebase() {
+      if (!user || !currentRoomId) return;
+      const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+      try {
+        await updateDoc(roomDocRef, {
+          matches: matches,
+          knockoutMatches: knockoutMatches,
+          lastUpdatedBy: user.uid
+        });
+      } catch (err) {
+        console.error("Error al sincronizar datos:", err);
+      }
+    }
+
+    // --- CÁLCULO DE LA FASE FINAL ---
+    function getTeamEmoji(teamName) {
+      if (!teamName) return '🏳️';
+      for (const group of Object.values(groupData)) {
+        if (group.emojis[teamName]) {
+          return group.emojis[teamName];
+        }
+      }
+      return '🏳️';
+    }
+
+    // Calcula clasificados y avanza a los ganadores por las rondas de playoffs
+    function computeKnockoutProgression() {
+      if (!matches || matches.length === 0) return;
+
+      // 1. Obtener la clasificación de todos los grupos (A-L)
+      const groupStandings = {};
+      const allThirdPlaces = [];
+
+      Object.keys(groupData).forEach(groupKey => {
+        const standings = calculateStandings(groupKey);
+        groupStandings[groupKey] = standings;
+
+        // Buscamos el 3º puesto de cada grupo
+        if (standings[2]) {
+          allThirdPlaces.push({
+            team: standings[2].team,
+            group: groupKey,
+            pts: standings[2].pts,
+            dg: standings[2].dg,
+            gf: standings[2].gf
+          });
+        }
+      });
+
+      // Ordenar mejores terceros según reglas oficiales: Puntos ➔ DG ➔ GF
+      allThirdPlaces.sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.dg !== a.dg) return b.dg - a.dg;
+        return b.gf - a.gf;
+      });
+
+      // Tomamos los 8 mejores terceros
+      const best8Thirds = allThirdPlaces.slice(0, 8).map(t => t.team);
+
+      // Helper para obtener nombres de equipos reales o placeholders
+      const getTeamInPos = (groupKey, positionIndex) => {
+        const standings = groupStandings[groupKey];
+        if (standings && standings[positionIndex] && standings[positionIndex].pj > 0) {
+          return standings[positionIndex].team;
+        }
+        return `Por definir (${positionIndex + 1}º ${groupKey})`;
+      };
+
+      const getBestThirdInPos = (index) => {
+        if (best8Thirds[index]) {
+          return best8Thirds[index];
+        }
+        return `Mejor 3º (${index + 1})`;
+      };
+
+      // 2. Emparejar Dieciseisavos (R32) de acuerdo al esqueleto preestablecido
+      const r32Pairings = [
+        { id: 'R32_1', home: getTeamInPos('A', 0), away: getBestThirdInPos(0) }, // 1A vs Mejor 3º 1
+        { id: 'R32_2', home: getTeamInPos('B', 1), away: getTeamInPos('C', 1) }, // 2B vs 2C
+        { id: 'R32_3', home: getTeamInPos('C', 0), away: getBestThirdInPos(1) }, // 1C vs Mejor 3º 2
+        { id: 'R32_4', home: getTeamInPos('D', 0), away: getTeamInPos('E', 1) }, // 1D vs 2E
+        { id: 'R32_5', home: getTeamInPos('E', 0), away: getBestThirdInPos(2) }, // 1E vs Mejor 3º 3
+        { id: 'R32_6', home: getTeamInPos('A', 1), away: getTeamInPos('F', 1) }, // 2A vs 2F
+        { id: 'R32_7', home: getTeamInPos('G', 0), away: getBestThirdInPos(3) }, // 1G vs Mejor 3º 4
+        { id: 'R32_8', home: getTeamInPos('H', 0), away: getTeamInPos('I', 1) }, // 1H vs 2I
+        { id: 'R32_9', home: getTeamInPos('I', 0), away: getBestThirdInPos(4) }, // 1I vs Mejor 3º 5
+        { id: 'R32_10', home: getTeamInPos('H', 1), away: getTeamInPos('J', 1) }, // 2H vs 2J
+        { id: 'R32_11', home: getTeamInPos('K', 0), away: getBestThirdInPos(5) }, // 1K vs Mejor 3º 6
+        { id: 'R32_12', home: getTeamInPos('L', 0), away: getTeamInPos('K', 1) }, // 1L vs 2K
+        { id: 'R32_13', home: getTeamInPos('B', 0), away: getBestThirdInPos(6) }, // 1B vs Mejor 3º 7
+        { id: 'R32_14', home: getTeamInPos('D', 1), away: getTeamInPos('G', 1) }, // 2D vs 2G
+        { id: 'R32_15', home: getTeamInPos('J', 0), away: getBestThirdInPos(7) }, // 1J vs Mejor 3º 8
+        { id: 'R32_16', home: getTeamInPos('F', 0), away: getTeamInPos('L', 1) }  // 1F vs 2L
+      ];
+
+      // Actualizar nombres de equipos de Dieciseisavos
+      r32Pairings.forEach(p => {
+        const match = knockoutMatches.find(k => k.id === p.id);
+        if (match) {
+          match.homeTeam = p.home;
+          match.awayTeam = p.away;
+        }
+      });
+
+      // Helper para calcular ganador de un enfrentamiento directo
+      const getWinnerOf = (matchId) => {
+        const match = knockoutMatches.find(k => k.id === matchId);
+        if (!match || match.homeScore === null || match.awayScore === null) return '';
+
+        const hs = parseInt(match.homeScore);
+        const as = parseInt(match.awayScore);
+
+        if (hs > as) return match.homeTeam;
+        if (hs < as) return match.awayTeam;
+
+        // Resolver tanda de penaltis si empataron
+        const hp = parseInt(match.homePen);
+        const ap = parseInt(match.awayPen);
+        if (!isNaN(hp) && !isNaN(ap)) {
+          if (hp > ap) return match.homeTeam;
+          if (hp < ap) return match.awayTeam;
+        }
+
+        return `Ganador ${matchId}`;
+      };
+
+      // 3. Progresión para Octavos de Final (R16)
+      const r16Map = [
+        { id: 'R16_1', home: getWinnerOf('R32_1'), away: getWinnerOf('R32_2') },
+        { id: 'R16_2', home: getWinnerOf('R32_3'), away: getWinnerOf('R32_4') },
+        { id: 'R16_3', home: getWinnerOf('R32_5'), away: getWinnerOf('R32_6') },
+        { id: 'R16_4', home: getWinnerOf('R32_7'), away: getWinnerOf('R32_8') },
+        { id: 'R16_5', home: getWinnerOf('R32_9'), away: getWinnerOf('R32_10') },
+        { id: 'R16_6', home: getWinnerOf('R32_11'), away: getWinnerOf('R32_12') },
+        { id: 'R16_7', home: getWinnerOf('R32_13'), away: getWinnerOf('R32_14') },
+        { id: 'R16_8', home: getWinnerOf('R32_15'), away: getWinnerOf('R32_16') }
+      ];
+      r16Map.forEach(p => {
+        const match = knockoutMatches.find(k => k.id === p.id);
+        if (match) {
+          match.homeTeam = p.home || 'Ganador R32';
+          match.awayTeam = p.away || 'Ganador R32';
+        }
+      });
+
+      // 4. Progresión para Cuartos de Final (QF)
+      const qfMap = [
+        { id: 'QF_1', home: getWinnerOf('R16_1'), away: getWinnerOf('R16_2') },
+        { id: 'QF_2', home: getWinnerOf('R16_3'), away: getWinnerOf('R16_4') },
+        { id: 'QF_3', home: getWinnerOf('R16_5'), away: getWinnerOf('R16_6') },
+        { id: 'QF_4', home: getWinnerOf('R16_7'), away: getWinnerOf('R16_8') }
+      ];
+      qfMap.forEach(p => {
+        const match = knockoutMatches.find(k => k.id === p.id);
+        if (match) {
+          match.homeTeam = p.home || 'Ganador R16';
+          match.awayTeam = p.away || 'Ganador R16';
+        }
+      });
+
+      // 5. Progresión para Semifinales (SF)
+      const sfMap = [
+        { id: 'SF_1', home: getWinnerOf('QF_1'), away: getWinnerOf('QF_2') },
+        { id: 'SF_2', home: getWinnerOf('QF_3'), away: getWinnerOf('QF_4') }
+      ];
+      sfMap.forEach(p => {
+        const match = knockoutMatches.find(k => k.id === p.id);
+        if (match) {
+          match.homeTeam = p.home || 'Ganador Cuartos';
+          match.awayTeam = p.away || 'Ganador Cuartos';
+        }
+      });
+
+      // 6. Progresión para la Gran Final (F)
+      const fMap = [
+        { id: 'F_1', home: getWinnerOf('SF_1'), away: getWinnerOf('SF_2') }
+      ];
+      fMap.forEach(p => {
+        const match = knockoutMatches.find(k => k.id === p.id);
+        if (match) {
+          match.homeTeam = p.home || 'Semifinalista';
+          match.awayTeam = p.away || 'Semifinalista';
+        }
+      });
+    }
+
+    // --- ACCIONES DE ACTUALIZACIÓN DE MARCADOR ---
+    async function updateKnockoutScore(matchId, side, value) {
+      const match = knockoutMatches.find(k => k.id === matchId);
+      if (!match) return;
+
+      if (value === '') {
+        if (side === 'home') match.homeScore = null;
+        if (side === 'away') match.awayScore = null;
+      } else {
+        const valInt = parseInt(value);
+        if (isNaN(valInt) || valInt < 0) return;
+        if (side === 'home') match.homeScore = valInt;
+        if (side === 'away') match.awayScore = valInt;
+      }
+
+      // Reiniciar penaltis si se cambia el marcador
+      if (match.homeScore !== match.awayScore) {
+        match.homePen = null;
+        match.awayPen = null;
+      }
+
+      computeKnockoutProgression();
+      renderKnockoutBracket();
+      await syncDataToFirebase();
+    }
+
+    async function updateKnockoutPenalty(matchId, side, value) {
+      const match = knockoutMatches.find(k => k.id === matchId);
+      if (!match) return;
+
+      if (value === '') {
+        if (side === 'homePen') match.homePen = null;
+        if (side === 'awayPen') match.awayPen = null;
+      } else {
+        const valInt = parseInt(value);
+        if (isNaN(valInt) || valInt < 0) return;
+        if (side === 'homePen') match.homePen = valInt;
+        if (side === 'awayPen') match.awayPen = valInt;
+      }
+
+      computeKnockoutProgression();
+      renderKnockoutBracket();
+      await syncDataToFirebase();
+    }
+
+    // --- CALCULAR TABLA DE GRUPO ---
+    function calculateStandings(groupKey) {
+      const group = groupData[groupKey];
+      const standings = {};
+
+      group.teams.forEach(team => {
+        standings[team] = {
+          team: team,
+          emoji: group.emojis[team],
+          pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, dg: 0, pts: 0
+        };
+      });
+
+      const groupMatches = matches.filter(m => m.group === groupKey);
+      groupMatches.forEach(m => {
+        if (m.homeScore !== null && m.awayScore !== null) {
+          const hs = parseInt(m.homeScore);
+          const as = parseInt(m.awayScore);
+
+          standings[m.home].pj += 1;
+          standings[m.away].pj += 1;
+          standings[m.home].gf += hs;
+          standings[m.home].gc += as;
+          standings[m.away].gf += as;
+          standings[m.away].gc += hs;
+
+          if (hs > as) {
+            standings[m.home].pg += 1;
+            standings[m.home].pts += 3;
+            standings[m.away].pp += 1;
+          } else if (hs < as) {
+            standings[m.away].pg += 1;
+            standings[m.away].pts += 3;
+            standings[m.home].pp += 1;
+          } else {
+            standings[m.home].pe += 1;
+            standings[m.home].pts += 1;
+            standings[m.away].pe += 1;
+            standings[m.away].pts += 1;
+          }
+        }
+      });
+
+      const standingsArray = Object.values(standings);
+      standingsArray.forEach(t => { t.dg = t.gf - t.gc; });
+
+      standingsArray.sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.dg !== a.dg) return b.dg - a.dg;
+        return b.gf - a.gf;
+      });
+
+      return standingsArray;
+    }
+
+    // --- RENDERIZADO DE INTERFAZ ---
+
+    // Renderizar Grupo de Fase de Grupos
+    function renderGroupSection(groupKey) {
+      const containerId = `group-card-${groupKey}`;
+      let container = document.getElementById(containerId);
+      
+      const standings = calculateStandings(groupKey);
+      const groupMatches = matches.filter(m => m.group === groupKey);
+      const groupInfo = groupData[groupKey];
+
+      const innerHTML = `
+        <div class="bg-slate-900/70 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-md">
+          <div class="bg-gradient-to-r from-emerald-950/70 to-slate-900 border-b border-slate-800/80 p-4 flex justify-between items-center">
+            <h3 class="text-base font-extrabold text-emerald-400 tracking-wider">${groupInfo.name}</h3>
+            <span class="text-[10px] bg-slate-800 text-slate-400 font-bold px-2 py-0.5 rounded-full uppercase">Pasan 2 directos</span>
+          </div>
+
+          <div class="p-4 md:p-5 space-y-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs md:text-sm">
+                <thead>
+                  <tr class="text-slate-500 border-b border-slate-800/60">
+                    <th class="pb-2 font-semibold">Pos</th>
+                    <th class="pb-2 font-semibold">Selección</th>
+                    <th class="pb-2 text-center font-semibold">PJ</th>
+                    <th class="pb-2 text-center font-semibold">PG</th>
+                    <th class="pb-2 text-center font-semibold">PE</th>
+                    <th class="pb-2 text-center font-semibold">PP</th>
+                    <th class="pb-2 text-center font-semibold">Goles</th>
+                    <th class="pb-2 text-center font-semibold">DG</th>
+                    <th class="pb-2 text-right font-bold text-emerald-400">Pts</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/30">
+                  ${standings.map((t, idx) => {
+                    const isQualifying = idx < 2;
+                    return `
+                      <tr class="hover:bg-slate-800/10 transition duration-150">
+                        <td class="py-2">
+                          <span class="inline-flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-extrabold ${isQualifying ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-800/60 text-slate-500'}">
+                            ${idx + 1}
+                          </span>
+                        </td>
+                        <td class="py-2 font-bold text-slate-200">
+                          <span class="mr-1.5 text-base select-none">${t.emoji}</span>${t.team}
+                        </td>
+                        <td class="py-2 text-center text-slate-300 font-medium">${t.pj}</td>
+                        <td class="py-2 text-center text-slate-400">${t.pg}</td>
+                        <td class="py-2 text-center text-slate-400">${t.pe}</td>
+                        <td class="py-2 text-center text-slate-400">${t.pp}</td>
+                        <td class="py-2 text-center text-slate-400 font-mono text-xs">${t.gf}:${t.gc}</td>
+                        <td class="py-2 text-center font-semibold ${t.dg > 0 ? 'text-emerald-400' : t.dg < 0 ? 'text-rose-400' : 'text-slate-500'}">
+                          ${t.dg > 0 ? '+' : ''}${t.dg}
+                        </td>
+                        <td class="py-2 text-right font-black text-emerald-400 text-sm md:text-base">${t.pts}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800/50">
+              <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Partidos del Grupo</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                ${groupMatches.map(m => {
+                  const emojiHome = groupInfo.emojis[m.home] || '🏳️';
+                  const emojiAway = groupInfo.emojis[m.away] || '🏳️';
+                  return `
+                    <div class="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-2.5 flex items-center justify-between gap-1 transition">
+                      <div class="flex-1 flex items-center gap-1.5 min-w-0">
+                        <span class="text-lg shrink-0 select-none">${emojiHome}</span>
+                        <span class="text-xs font-bold text-slate-200 truncate" title="${m.home}">${m.home}</span>
+                      </div>
+
+                      <div class="flex items-center gap-1 shrink-0 px-1">
+                        <input 
+                          type="number" 
+                          placeholder="-"
+                          value="${m.homeScore !== null ? m.homeScore : ''}" 
+                          data-match-id="${m.id}"
+                          data-side="home"
+                          class="score-input w-8 h-8 bg-slate-800/80 border border-slate-700/60 text-center font-black text-sm text-emerald-400 rounded-lg focus:border-emerald-500 focus:outline-none transition"
+                        />
+                        <span class="text-slate-600 font-black text-xs">:</span>
+                        <input 
+                          type="number" 
+                          placeholder="-"
+                          value="${m.awayScore !== null ? m.awayScore : ''}" 
+                          data-match-id="${m.id}"
+                          data-side="away"
+                          class="score-input w-8 h-8 bg-slate-800/80 border border-slate-700/60 text-center font-black text-sm text-emerald-400 rounded-lg focus:border-emerald-500 focus:outline-none transition"
+                        />
+                      </div>
+
+                      <div class="flex-1 flex items-center justify-end gap-1.5 min-w-0 text-right">
+                        <span class="text-xs font-bold text-slate-200 truncate" title="${m.away}">${m.away}</span>
+                        <span class="text-lg shrink-0 select-none">${emojiAway}</span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      if (!container) {
+        container = document.createElement('div');
+        container.id = containerId;
+        document.getElementById('groups-grid').appendChild(container);
+      }
+      container.innerHTML = innerHTML;
+    }
+
+    function renderAllGroups() {
+      const grid = document.getElementById('groups-grid');
+      if (!grid) return;
+      Object.keys(groupData).forEach(groupKey => {
+        renderGroupSection(groupKey);
+      });
+    }
+
+    // Renderizar Lista de Partidos del Filtro
+    function renderMatchesList() {
+      const container = document.getElementById('matches-list-container');
+      if (!container) return;
+
+      const filterGroup = document.getElementById('filter-group-select').value;
+      container.innerHTML = '';
+
+      const filteredMatches = filterGroup === 'ALL' ? matches : matches.filter(m => m.group === filterGroup);
+
+      if (filteredMatches.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-sm">No hay partidos en este grupo.</div>`;
+        return;
+      }
+
+      filteredMatches.forEach(m => {
+        const groupInfo = groupData[m.group];
+        const emojiHome = groupInfo.emojis[m.home] || '🏳️';
+        const emojiAway = groupInfo.emojis[m.away] || '🏳️';
+
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-3 md:p-4 flex flex-wrap md:flex-nowrap items-center justify-between gap-3 transition";
+        card.innerHTML = `
+          <div class="flex items-center gap-2 w-full md:w-auto">
+            <span class="bg-slate-800 text-slate-300 font-extrabold px-2.5 py-1 rounded-lg text-xs">M${m.id}</span>
+            <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold px-2 py-0.5 rounded-lg text-xs">Grupo ${m.group}</span>
+            <span class="text-slate-500 text-xs font-medium">${m.date}</span>
+          </div>
+
+          <div class="flex items-center justify-between w-full md:w-3/5 max-w-md mx-auto">
+            <div class="flex items-center gap-2 min-w-0 w-2/5">
+              <span class="text-lg shrink-0 select-none">${emojiHome}</span>
+              <span class="text-xs md:text-sm font-bold text-slate-200 truncate">${m.home}</span>
+            </div>
+
+            <div class="flex items-center gap-1 shrink-0 mx-2">
+              <input 
+                type="number" 
+                placeholder="-"
+                value="${m.homeScore !== null ? m.homeScore : ''}" 
+                data-match-id="${m.id}"
+                data-side="home"
+                class="score-input w-8.5 h-8.5 bg-slate-800 border border-slate-700 text-center font-black text-sm text-emerald-400 rounded-lg focus:border-emerald-500 focus:outline-none"
+              />
+              <span class="text-slate-600 font-black text-xs">:</span>
+              <input 
+                type="number" 
+                placeholder="-"
+                value="${m.awayScore !== null ? m.awayScore : ''}" 
+                data-match-id="${m.id}"
+                data-side="away"
+                class="score-input w-8.5 h-8.5 bg-slate-800 border border-slate-700 text-center font-black text-sm text-emerald-400 rounded-lg focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <div class="flex items-center justify-end gap-2 min-w-0 w-2/5 text-right">
+              <span class="text-xs md:text-sm font-bold text-slate-200 truncate">${m.away}</span>
+              <span class="text-lg shrink-0 select-none">${emojiAway}</span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // Renderizar Cuadro de Fase Final
+    function renderKnockoutBracket() {
+      const container = document.getElementById('knockout-bracket-container');
+      if (!container) return;
+
+      container.innerHTML = '';
+
+      // Filtramos las tarjetas para pintar únicamente la ronda seleccionada
+      const roundMatches = knockoutMatches.filter(m => m.round === currentKoRoundView);
+
+      roundMatches.forEach(m => {
+        const emojiHome = getTeamEmoji(m.homeTeam);
+        const emojiAway = getTeamEmoji(m.awayTeam);
+        
+        // Comprobar si hay empate para habilitar penaltis
+        const isTie = m.homeScore !== null && m.awayScore !== null && parseInt(m.homeScore) === parseInt(m.awayScore);
+
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800/80 hover:border-slate-700 rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 shadow-md relative";
+        
+        card.innerHTML = `
+          <div class="flex justify-between items-center mb-3">
+            <span class="text-[10px] bg-slate-800 text-indigo-400 border border-slate-700 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+              ID: ${m.id}
+            </span>
+            <span class="text-[10px] text-slate-500 font-semibold uppercase">Eliminación directa</span>
+          </div>
+
+          <!-- Enfrentamiento central -->
+          <div class="space-y-3 py-2">
+            <!-- Equipo Local -->
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="text-xl shrink-0 select-none">${emojiHome}</span>
+                <span class="text-sm font-bold text-slate-100 truncate">${m.homeTeam || 'Por definir'}</span>
+              </div>
+              <input 
+                type="number" 
+                placeholder="-"
+                value="${m.homeScore !== null ? m.homeScore : ''}" 
+                data-match-id="${m.id}"
+                data-side="home"
+                data-knockout="true"
+                class="score-input w-9 h-8 bg-slate-800 border border-slate-700 text-center font-black text-sm text-emerald-400 rounded-lg focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <!-- Equipo Visitante -->
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="text-xl shrink-0 select-none">${emojiAway}</span>
+                <span class="text-sm font-bold text-slate-100 truncate">${m.awayTeam || 'Por definir'}</span>
+              </div>
+              <input 
+                type="number" 
+                placeholder="-"
+                value="${m.awayScore !== null ? m.awayScore : ''}" 
+                data-match-id="${m.id}"
+                data-side="away"
+                data-knockout="true"
+                class="score-input w-9 h-8 bg-slate-800 border border-slate-700 text-center font-black text-sm text-emerald-400 rounded-lg focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <!-- Sección de Tanda de Penaltis (Si es Empate) -->
+          ${isTie ? `
+            <div class="mt-3 pt-3 border-t border-slate-800/80 bg-emerald-500/5 p-2 rounded-xl">
+              <span class="text-[10px] text-emerald-400 font-black block uppercase tracking-wider mb-2 text-center">🎯 Definición por penaltis</span>
+              <div class="flex justify-between items-center gap-4">
+                <div class="text-xs text-slate-400 font-medium">Lanzamientos anotados:</div>
+                <div class="flex items-center gap-1">
+                  <input 
+                    type="number" 
+                    placeholder="P"
+                    value="${m.homePen !== null ? m.homePen : ''}" 
+                    data-match-id="${m.id}"
+                    data-side="homePen"
+                    data-penaltis="true"
+                    class="score-input w-8 h-7 bg-slate-800 border border-slate-700 text-center font-bold text-xs text-amber-400 rounded focus:border-amber-500 focus:outline-none"
+                  />
+                  <span class="text-slate-600 font-bold text-xs">-</span>
+                  <input 
+                    type="number" 
+                    placeholder="P"
+                    value="${m.awayPen !== null ? m.awayPen : ''}" 
+                    data-match-id="${m.id}"
+                    data-side="awayPen"
+                    data-penaltis="true"
+                    class="score-input w-8 h-7 bg-slate-800 border border-slate-700 text-center font-bold text-xs text-amber-400 rounded focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // Cambiar la subpestaña de la fase final
+    window.switchKoRound = function(roundKey) {
+      currentKoRoundView = roundKey;
+      
+      const rounds = ['R32', 'R16', 'QF', 'SF', 'F'];
+      rounds.forEach(r => {
+        const btn = document.getElementById(`ko-tab-${r}`);
+        if (btn) {
+          if (r === roundKey) {
+            btn.className = "px-4 py-2 text-xs font-bold bg-emerald-500/10 text-emerald-400 rounded-lg shrink-0";
+          } else {
+            btn.className = "px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 shrink-0";
+          }
+        }
+      });
+
+      renderKnockoutBracket();
+    };
+
+    // --- ACCIONES DE CONTROL GLOBAL ---
+    async function simulateAllMatches() {
+      // 1. Simular Fase de Grupos
+      matches.forEach(m => {
+        if (m.homeScore === null || m.awayScore === null) {
+          m.homeScore = getRandomGoals();
+          m.awayScore = getRandomGoals();
+        }
+      });
+
+      // 2. Simular Playoffs (Dieciseisavos a Final)
+      computeKnockoutProgression();
+      
+      // Simulación iterativa de cada ronda para que se compute correctamente el ganador y avance
+      const rounds = ['R32', 'R16', 'QF', 'SF', 'F'];
+      rounds.forEach(r => {
+        computeKnockoutProgression();
+        knockoutMatches.forEach(m => {
+          if (m.round === r && (m.homeScore === null || m.awayScore === null)) {
+            m.homeScore = getRandomGoals();
+            m.awayScore = getRandomGoals();
+            if (m.homeScore === m.awayScore) {
+              // Si empata en playoffs, decidir por penaltis de inmediato
+              const isHomeWinner = Math.random() > 0.5;
+              m.homePen = isHomeWinner ? 5 : 4;
+              m.awayPen = isHomeWinner ? 4 : 5;
+            }
+          }
+        });
+      });
+
+      computeKnockoutProgression();
+      renderAllGroups();
+      renderMatchesList();
+      renderKnockoutBracket();
+      await syncDataToFirebase();
+    }
+
+    function getRandomGoals() {
+      const rand = Math.random();
+      if (rand < 0.25) return 0;
+      if (rand < 0.60) return 1;
+      if (rand < 0.85) return 2;
+      if (rand < 0.95) return 3;
+      return Math.floor(Math.random() * 3) + 4;
+    }
+
+    async function resetAllScores() {
+      matches = generateMatchesSkeleton();
+      knockoutMatches = generateKnockoutSkeleton();
+      
+      renderAllGroups();
+      renderMatchesList();
+      renderKnockoutBracket();
+      await syncDataToFirebase();
+      closeConfirmModal();
+    }
+
+    // --- ENTRADA A LA SALA ---
+    function joinOrCreateRoom() {
+      const input = document.getElementById('room-input');
+      const rawId = input.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      if (!rawId) return;
+
+      window.location.hash = `room=${rawId}`;
+      currentRoomId = rawId;
+      document.getElementById('lobby-screen').classList.add('hidden');
+      document.getElementById('room-display-name').innerText = rawId.toUpperCase();
+      
+      document.getElementById('share-room-code').innerText = rawId.toUpperCase();
+      document.getElementById('share-room-code-badge').innerText = rawId.toUpperCase();
+
+      setupRoomListener();
+    }
+
+    function loadRoomFromHash() {
+      const hash = window.location.hash;
+      if (hash.startsWith('#room=')) {
+        const roomId = hash.replace('#room=', '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+        if (roomId) {
+          currentRoomId = roomId;
+          document.getElementById('lobby-screen').classList.add('hidden');
+          document.getElementById('room-display-name').innerText = roomId.toUpperCase();
+          document.getElementById('share-room-code').innerText = roomId.toUpperCase();
+          document.getElementById('share-room-code-badge').innerText = roomId.toUpperCase();
+          setupRoomListener();
+          return true;
+        }
+      }
+      document.getElementById('lobby-screen').classList.remove('hidden');
+      return false;
+    }
+
+    // --- COPIAR Y COMPARTIR MODALES ---
+    window.openShareModal = function() {
+      const modal = document.getElementById('share-modal');
+      modal.classList.remove('hidden');
+
+      const isSandbox = window.location.href.startsWith('blob:') || 
+                        window.location.href.startsWith('file:') || 
+                        window.location.href.includes('usercontent.goog');
+      
+      const warningEl = document.getElementById('share-env-warning');
+      if (isSandbox) {
+        warningEl.classList.remove('hidden');
+      } else {
+        warningEl.classList.add('hidden');
+      }
+    };
+
+    window.closeShareModal = function() {
+      document.getElementById('share-modal').classList.add('hidden');
+    };
+
+    window.copyRoomCodeOnly = function() {
+      const code = currentRoomId.toUpperCase();
+      copyToClipboardText(code, "¡Código de sala copiado! Compártelo con tus amigos.");
+    };
+
+    window.copyShareLink = function() {
+      const isSandbox = window.location.href.startsWith('blob:') || 
+                        window.location.href.startsWith('file:') || 
+                        window.location.href.includes('usercontent.goog');
+
+      if (isSandbox) {
+        const code = currentRoomId.toUpperCase();
+        copyToClipboardText(code, "⚠️ Copiado el código '" + code + "'. Los enlaces temporales de vista previa no sirven en otros dispositivos.");
+      } else {
+        const fullUrl = window.location.origin + window.location.pathname + "#room=" + currentRoomId;
+        copyToClipboardText(fullUrl, "¡Enlace de invitación copiado con éxito!");
+      }
+    };
+
+    function copyToClipboardText(text, successMessage) {
+      const tempInput = document.createElement('input');
+      tempInput.setAttribute('value', text);
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      
+      try {
+        document.execCommand('copy');
+        showToast(successMessage);
+      } catch (err) {
+        console.error("No se pudo copiar automáticamente:", err);
+      }
+      document.body.removeChild(tempInput);
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast-message');
+      const text = document.getElementById('toast-text');
+      text.innerText = message;
+      toast.classList.remove('opacity-0', 'translate-y-12');
+      toast.classList.add('opacity-100', 'translate-y-0');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-12');
+      }, 5000);
+    }
+
+    // --- PESTAÑAS PRINCIPALES ---
+    window.switchTab = function(tab) {
+      const groupsBtn = document.getElementById('tab-groups-btn');
+      const matchesBtn = document.getElementById('tab-matches-btn');
+      const knockoutBtn = document.getElementById('tab-knockout-btn');
+      
+      const viewGroups = document.getElementById('view-groups');
+      const viewMatches = document.getElementById('view-matches');
+      const viewKnockout = document.getElementById('view-knockout');
+
+      // Resetear clases de todos los botones de las pestañas
+      [groupsBtn, matchesBtn, knockoutBtn].forEach(btn => {
+        if (btn) btn.className = "px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-semibold text-sm transition shrink-0";
+      });
+
+      // Ocultar todas las secciones
+      [viewGroups, viewMatches, viewKnockout].forEach(view => {
+        if (view) view.classList.add('hidden');
+      });
+
+      if (tab === 'groups') {
+        groupsBtn.className = "px-4 py-3 border-b-2 border-emerald-500 text-emerald-400 font-bold text-sm transition shrink-0";
+        viewGroups.classList.remove('hidden');
+        renderAllGroups();
+      } else if (tab === 'matches') {
+        matchesBtn.className = "px-4 py-3 border-b-2 border-emerald-500 text-emerald-400 font-bold text-sm transition shrink-0";
+        viewMatches.classList.remove('hidden');
+        renderMatchesList();
+      } else if (tab === 'knockout') {
+        knockoutBtn.className = "px-4 py-3 border-b-2 border-emerald-500 text-emerald-400 font-bold text-sm transition shrink-0 flex items-center gap-1.5";
+        viewKnockout.classList.remove('hidden');
+        renderKnockoutBracket();
+      }
+    };
+
+    // Confirmación modal
+    window.confirmReset = function() {
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    };
+    window.closeConfirmModal = function() {
+      document.getElementById('confirm-modal').classList.add('hidden');
+    };
+
+    // --- ASIGNACIÓN DE ESCUCHADORES DE EVENTOS EN LUGAR DE INLINE (PREVENCIÓN DE ReferenceError) ---
+    window.addEventListener('hashchange', () => {
+      loadRoomFromHash();
+    });
+
+    window.addEventListener('load', async () => {
+      // 1. Asignar clics de pestañas principales
+      document.getElementById('tab-groups-btn').addEventListener('click', () => window.switchTab('groups'));
+      document.getElementById('tab-matches-btn').addEventListener('click', () => window.switchTab('matches'));
+      document.getElementById('tab-knockout-btn').addEventListener('click', () => window.switchTab('knockout'));
+
+      // 2. Asignar clics de subpestañas de Fase Final (Playoffs)
+      document.getElementById('ko-tab-R32').addEventListener('click', () => window.switchKoRound('R32'));
+      document.getElementById('ko-tab-R16').addEventListener('click', () => window.switchKoRound('R16'));
+      document.getElementById('ko-tab-QF').addEventListener('click', () => window.switchKoRound('QF'));
+      document.getElementById('ko-tab-SF').addEventListener('click', () => window.switchKoRound('SF'));
+      document.getElementById('ko-tab-F').addEventListener('click', () => window.switchKoRound('F'));
+
+      // 3. Asignar botones globales
+      document.getElementById('join-room-btn').addEventListener('click', joinOrCreateRoom);
+      document.getElementById('open-share-btn').addEventListener('click', window.openShareModal);
+      document.getElementById('close-share-btn').addEventListener('click', window.closeShareModal);
+      document.getElementById('copy-code-btn').addEventListener('click', window.copyRoomCodeOnly);
+      document.getElementById('copy-link-btn').addEventListener('click', window.copyShareLink);
+
+      document.getElementById('simulate-btn').addEventListener('click', simulateAllMatches);
+      document.getElementById('reset-btn').addEventListener('click', window.confirmReset);
+      document.getElementById('close-confirm-btn').addEventListener('click', window.closeConfirmModal);
+      document.getElementById('modal-confirm-reset-btn').addEventListener('click', resetAllScores);
+
+      // Filtro de lista de partidos
+      document.getElementById('filter-group-select').addEventListener('change', renderMatchesList);
+
+      // 4. Delegación de eventos para la captura de marcadores (Inputs dinámicos)
+      document.addEventListener('input', async (e) => {
+        if (e.target.classList.contains('score-input')) {
+          const matchId = e.target.getAttribute('data-match-id');
+          const side = e.target.getAttribute('data-side');
+          const isKnockout = e.target.getAttribute('data-knockout') === 'true';
+          const isPenaltis = e.target.getAttribute('data-penaltis') === 'true';
+          const val = e.target.value;
+
+          if (!matchId) return;
+
+          if (isPenaltis) {
+            await updateKnockoutPenalty(matchId, side, val);
+          } else if (isKnockout) {
+            await updateKnockoutScore(matchId, side, val);
+          } else {
+            // Fase de grupos tradicional
+            const matchIndex = matches.findIndex(m => m.id === Number(matchId));
+            if (matchIndex === -1) return;
+
+            if (val === '') {
+              if (side === 'home') matches[matchIndex].homeScore = null;
+              if (side === 'away') matches[matchIndex].awayScore = null;
+            } else {
+              const valInt = parseInt(val);
+              if (isNaN(valInt) || valInt < 0) return;
+              if (side === 'home') matches[matchIndex].homeScore = valInt;
+              if (side === 'away') matches[matchIndex].awayScore = valInt;
+            }
+
+            // Al modificar goles de grupos, recalculamos la fase final (efecto dominó)
+            computeKnockoutProgression();
+            renderAllGroups();
+            renderKnockoutBracket();
+            await syncDataToFirebase();
+          }
+        }
+      });
+
+      // 5. Iniciar Autenticación y Carga
+      await initAuth();
+      onAuthStateChanged(auth, (authUser) => {
+        if (authUser) {
+          user = authUser;
+          document.getElementById('user-display-id').innerText = authUser.uid;
+          loadRoomFromHash();
+        }
+      });
+    });
+
+    // Registrar utilidades indispensables en window
+    window.appUpdateScore = firebaseUpdateScore;
+  </script>
+</body>
+</html>
